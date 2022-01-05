@@ -135,6 +135,7 @@ if not os.path.isfile(f'example_predictions_{current_round}.parquet'):
                   f'./nmfdata/example_predictions_{current_round}.parquet', roundreq=current_round)
 if not os.path.isfile(f'example_validation_predictions_{current_round}.parquet'):
     download_data(napi, 'example_validation_predictions.parquet', f'./nmfdata/example_validation_predictions_{current_round}.parquet', roundreq=current_round)
+
 maincols = list(np.loadtxt('./nmfdata/traincolumns.txt', dtype='str'))
 features = list(maincols[3:-21])
 diff = set(maincols) - set(features)
@@ -144,27 +145,34 @@ nmf = np.loadtxt('./nmfdata/LargeKL.csv', delimiter=',')
 nmf = nmf.astype('float32')
 nmffeatures = ['nmf_'+str(c) for c in range(nmf.shape[1])]
 batch_size = 100_000
-CreateMungedParquet(f'./nmfdata/numerai_training_data_{current_round}.parquet',
-                    f'./nmfdata/numerai_training_data_munged_{current_round}.parquet',
-                    batch_size,
-                    features,
-                    otherfeatures,
-                    nmf,
-                    nmffeatures)
-CreateMungedParquet(f'./nmfdata/numerai_tournament_data_{current_round}.parquet',
-                    f'./nmfdata/numerai_tournament_data_munged_{current_round}.parquet',
-                    batch_size,
-                    features,
-                    otherfeatures,
-                    nmf,
-                    nmffeatures)
-CreateMungedParquet(f'./nmfdata/numerai_validation_data_{current_round}.parquet',
-                    f'./nmfdata/numerai_validation_data_munged_{current_round}.parquet',
-                    batch_size,
-                    features,
-                    otherfeatures,
-                    nmf,
-                    nmffeatures)
+
+if not os.path.isfile(f'./nmfdata/numerai_training_data_munged_{current_round}.parquet'):
+    CreateMungedParquet(f'./nmfdata/numerai_training_data_{current_round}.parquet',
+                        f'./nmfdata/numerai_training_data_munged_{current_round}.parquet',
+                        batch_size,
+                        features,
+                        otherfeatures,
+                        nmf,
+                        nmffeatures)
+
+if not os.path.isfile(f'./nmfdata/numerai_tournament_data_munged_{current_round}.parquet'):
+    CreateMungedParquet(f'./nmfdata/numerai_tournament_data_{current_round}.parquet',
+                        f'./nmfdata/numerai_tournament_data_munged_{current_round}.parquet',
+                        batch_size,
+                        features,
+                        otherfeatures,
+                        nmf,
+                        nmffeatures)
+
+if not os.path.isfile(f'./nmfdata/numerai_validation_data_munged_{current_round}.parquet'):
+    CreateMungedParquet(f'./nmfdata/numerai_validation_data_{current_round}.parquet',
+                        f'./nmfdata/numerai_validation_data_munged_{current_round}.parquet',
+                        batch_size,
+                        features,
+                        otherfeatures,
+                        nmf,
+                        nmffeatures)
+
 # Now to compare
 df = pd.read_parquet(
     f'./nmfdata/numerai_training_data_{current_round}.parquet')
