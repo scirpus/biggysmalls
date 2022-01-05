@@ -1,6 +1,6 @@
 # BiggySmalls
 
-Numer.ai's large dataset takes about 16Gb of memory.  The aim of this repo is to download the parquet files and to rum a linear transform to reduce the memory footprint to a more manageable size.
+Numer.ai's large dataset takes about 16Gb of memory.  The aim of this repo is to download the parquet files and to run a linear transform to reduce the memory footprint to a more manageable size.
 
 ## Getting Started
 
