@@ -1,16 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
 import gc
 import os
 import requests
 import numpy as np
 import pandas as pd
 from termcolor import colored
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from numerapi import NumerAPI
 from sklearn.preprocessing import PolynomialFeatures
 import pyarrow as pa
@@ -19,9 +15,6 @@ import os
 os.environ['NUMEXPR_MAX_THREADS'] = '8'
 os.environ['NUMEXPR_NUM_THREADS'] = '4'
 pa.set_cpu_count(4)
-
-
-# In[2]:
 
 
 def numerai_score(y_true, y_pred, eras):
@@ -34,14 +27,9 @@ def correlation_score(y_true, y_pred):
     return np.corrcoef(y_true, y_pred)[0, 1]
 
 
-# In[42]:
-
-
 def download_file(url: str, dest_path: str, show_progress_bars: bool = True):
-
     req = requests.get(url, stream=True)
     req.raise_for_status()
-
     # Total size in bytes.
     total_size = int(req.headers.get('content-length', 0))
     if os.path.exists(dest_path):
@@ -58,19 +46,16 @@ def download_file(url: str, dest_path: str, show_progress_bars: bool = True):
             # Error, delete file and restart download
             os.remove(dest_path)
             file_size = 0
-
     response = requests.get(url, stream=True)
-    total_size_in_bytes= int(response.headers.get('content-length', 0))
-    block_size = 1024 #1 Kibibyte
+    total_size_in_bytes = int(response.headers.get('content-length', 0))
+    block_size = 1024  # 1 Kibibyte
     progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
-    
-    
-    
+
     with open(dest_path, "ab") as dest_file:
         for chunk in req.iter_content(block_size):
             progress_bar.update(len(chunk))
             dest_file.write(chunk)
-            
+
     progress_bar.close()
 
 
@@ -95,24 +80,22 @@ def download_data(napi, filename, dest_path, roundreq=None):
     return dataset_url
 
 
-
-def CreateMungedParquet(parquetName,mungedParquetName,batch_size,features,otherfeatures,nmf,nmffeatures):
-       
+def CreateMungedParquet(parquetName, mungedParquetName, batch_size, features, otherfeatures, nmf, nmffeatures):
+    print('Generating from:',parquetName)
+    print('Generating to:',mungedParquetName)
     parquet_file = pq.ParquetFile(parquetName)
     finaldata = None
     totalrecords = parquet_file.metadata.num_rows
     progress_bar = tqdm(total=totalrecords, unit='iB', unit_scale=True)
-
     for rb in parquet_file.iter_batches(batch_size=batch_size, columns=maincols):
         df = rb.to_pandas().reset_index()
         df[features] = df[features].astype('float32')
         progress_bar.update(df.shape[0])
-        
-        
+
         chunkotherdata = df[otherfeatures]
-        chunkmungeddata = pd.DataFrame(data=np.matmul(df[features].values,nmf),
+        chunkmungeddata = pd.DataFrame(data=np.matmul(df[features].values, nmf),
                                        columns=nmffeatures).astype('float32')
-        chunkdata = pd.concat([chunkotherdata,chunkmungeddata],axis=1)
+        chunkdata = pd.concat([chunkotherdata, chunkmungeddata], axis=1)
         del chunkotherdata
         del chunkmungeddata
         gc.collect()
@@ -122,124 +105,72 @@ def CreateMungedParquet(parquetName,mungedParquetName,batch_size,features,otherf
             finaldata = finaldata.append(chunkdata.copy())
         del chunkdata
         gc.collect()
-
-    finaldata.set_index('id',drop=True,inplace=True)
+    finaldata.set_index('id', drop=True, inplace=True)
     table = pa.Table.from_pandas(finaldata)
-    finaldata.to_parquet(mungedParquetName,compression='gzip')
-    del finaldata
     pq.write_table(table,
-               mungedParquetName,
-               use_dictionary=False,
-               compression='GZIP',
-               compression_level=9,
-               data_page_version = "2.0"    
-              )
-    
+                   mungedParquetName,
+                   use_dictionary=False,
+                   compression='GZIP',
+                   compression_level=9,
+                   data_page_version="2.0"
+                   )
+
     gc.collect()
-
-
-# In[4]:
 
 
 napi = NumerAPI()
 current_round = napi.get_current_round(tournament=8)
-print('Round:',current_round)
+print('Round:', current_round)
 if not os.path.isfile(f'./nmfdata/numerai_training_data_{current_round}.parquet'):
-    download_data(napi, 'numerai_training_data.parquet', f'./nmfdata/numerai_training_data_{current_round}.parquet', roundreq=current_round)
+    download_data(napi, 'numerai_training_data.parquet',
+                  f'./nmfdata/numerai_training_data_{current_round}.parquet', roundreq=current_round)
 if not os.path.isfile(f'numerai_tournament_data_{current_round}.parquet'):
-    download_data(napi, 'numerai_tournament_data.parquet', f'./nmfdata/numerai_tournament_data_{current_round}.parquet', roundreq=current_round)
+    download_data(napi, 'numerai_tournament_data.parquet',
+                  f'./nmfdata/numerai_tournament_data_{current_round}.parquet', roundreq=current_round)
 if not os.path.isfile(f'numerai_validation_data_{current_round}.parquet'):
-    download_data(napi, 'numerai_validation_data.parquet', f'./nmfdata/numerai_validation_data_{current_round}.parquet', roundreq=current_round)
+    download_data(napi, 'numerai_validation_data.parquet',
+                  f'./nmfdata/numerai_validation_data_{current_round}.parquet', roundreq=current_round)
 if not os.path.isfile(f'example_predictions_{current_round}.parquet'):
-    download_data(napi, 'example_predictions.parquet', f'./nmfdata/example_predictions_{current_round}.parquet', roundreq=current_round)
+    download_data(napi, 'example_predictions.parquet',
+                  f'./nmfdata/example_predictions_{current_round}.parquet', roundreq=current_round)
 if not os.path.isfile(f'example_validation_predictions_{current_round}.parquet'):
     download_data(napi, 'example_validation_predictions.parquet', f'./nmfdata/example_validation_predictions_{current_round}.parquet', roundreq=current_round)
-
-
-# In[23]:
-
-
-maincols = list(np.loadtxt('./nmfdata/traincolumns.txt',dtype='str'))
-features  = list(maincols[3:-21])
+maincols = list(np.loadtxt('./nmfdata/traincolumns.txt', dtype='str'))
+features = list(maincols[3:-21])
 diff = set(maincols) - set(features)
 setfeatures = set(features)
 otherfeatures = [o for o in maincols if o not in setfeatures]
 nmf = np.loadtxt('./nmfdata/LargeKL.csv', delimiter=',')
 nmf = nmf.astype('float32')
 nmffeatures = ['nmf_'+str(c) for c in range(nmf.shape[1])]
-batch_size=100_000
-
-
-# In[48]:
-
-
+batch_size = 100_000
 CreateMungedParquet(f'./nmfdata/numerai_training_data_{current_round}.parquet',
-                f'./nmfdata/numerai_training_data_munged_{current_round}.parquet',
-                batch_size,
-                features,
-                otherfeatures,
-                nmf,
-                nmffeatures)
-
-
-# In[49]:
-
-
+                    f'./nmfdata/numerai_training_data_munged_{current_round}.parquet',
+                    batch_size,
+                    features,
+                    otherfeatures,
+                    nmf,
+                    nmffeatures)
 CreateMungedParquet(f'./nmfdata/numerai_tournament_data_{current_round}.parquet',
-                f'./nmfdata/numerai_tournament_data_munged_{current_round}.parquet',
-                batch_size,
-                features,
-                otherfeatures,
-                nmf,
-                nmffeatures)
-
-
-# In[43]:
-
-
+                    f'./nmfdata/numerai_tournament_data_munged_{current_round}.parquet',
+                    batch_size,
+                    features,
+                    otherfeatures,
+                    nmf,
+                    nmffeatures)
 CreateMungedParquet(f'./nmfdata/numerai_validation_data_{current_round}.parquet',
-                f'./nmfdata/numerai_validation_data_munged_{current_round}.parquet',
-                batch_size,
-                features,
-                otherfeatures,
-                nmf,
-                nmffeatures)
+                    f'./nmfdata/numerai_validation_data_munged_{current_round}.parquet',
+                    batch_size,
+                    features,
+                    otherfeatures,
+                    nmf,
+                    nmffeatures)
+# Now to compare
+df = pd.read_parquet(
+    f'./nmfdata/numerai_training_data_{current_round}.parquet')
+print(df.info(memory_usage="deep"))
 
-
-# In[32]:
-
-
-#Now to compare
-
-
-# In[54]:
-
-
-df = pd.read_parquet(f'./nmfdata/numerai_training_data_{current_round}.parquet')
-df.info(memory_usage="deep")
-
-
-# In[55]:
-
-
-df.head()
-
-
-# In[56]:
-
-
-df = pd.read_parquet(f'./nmfdata/numerai_training_data_munged_{current_round}.parquet')
-df.info(memory_usage="deep")
-
-
-# In[57]:
-
-
-df.head()
-
-
-# In[ ]:
-
-
-
+df = pd.read_parquet(
+    f'./nmfdata/numerai_training_data_munged_{current_round}.parquet')
+print(df.info(memory_usage="deep"))
 
