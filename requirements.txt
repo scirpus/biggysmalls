@@ -1,0 +1,8 @@
+numerapi==2.9.4
+numpy==1.20.2
+pandas==1.2.5
+pyarrow==4.0.1
+requests==2.25.1
+scikit_learn==1.0.2
+termcolor==1.1.0
+tqdm==4.61.1
